@@ -115,7 +115,7 @@ class S3Handler(BaseHTTPRequestHandler):
                 bucket = self.server.file_store.create_bucket(bucket_name)
             item = self.server.file_store.store_item(bucket, item_name, self)
             self.send_response(200)
-            self.send_header('Etag', '"%s"' % item.md5)
+            self.send_header('ETag', '"%s"' % item.md5)
 
         elif req_type == 'copy':
             self.server.file_store.copy_item(src_bucket, src_key, bucket_name, item_name, self)
