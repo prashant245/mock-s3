@@ -2,6 +2,7 @@
 import argparse
 import logging
 import os
+import socket
 import urlparse
 from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 from SocketServer import ThreadingMixIn
@@ -15,9 +16,39 @@ from file_store import FileStore
 
 logging.basicConfig(level=logging.INFO)
 
+if os.name != "nt":
+    import fcntl
+    import struct
+
+    def get_interface_ip(ifname):
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        return socket.inet_ntoa(fcntl.ioctl(s.fileno(), 0x8915, struct.pack('256s',
+                                ifname[:15]))[20:24])
+def get_lan_ip():
+    ip = socket.gethostbyname(socket.gethostname())
+    if ip.startswith("127.") and os.name != "nt":
+        interfaces = [
+            "eth0",
+            "eth1",
+            "eth2",
+            "wlan0",
+            "wlan1",
+            "wifi0",
+            "ath0",
+            "ath1",
+            "ppp0",
+            ]
+        for ifname in interfaces:
+            try:
+                ip = get_interface_ip(ifname)
+                break
+            except IOError:
+                pass
+    return ip        
 
 class S3Handler(BaseHTTPRequestHandler):
     def do_GET(self):
+
         parsed_path = urlparse.urlparse(self.path)
         qs = urlparse.parse_qs(parsed_path.query, True)
         host = self.headers['host'].split(':')[0]
@@ -27,6 +58,8 @@ class S3Handler(BaseHTTPRequestHandler):
         req_type = None
 
         mock_hostname = self.server.mock_hostname
+        print host + "asdf" + path + "asfad" + mock_hostname
+
         if host != mock_hostname and mock_hostname in host:
             idx = host.index(mock_hostname)
             bucket_name = host[:idx-1]
@@ -84,7 +117,6 @@ class S3Handler(BaseHTTPRequestHandler):
 
         if path == '/' and bucket_name:
             req_type = 'create_bucket'
-
         else:
             if not bucket_name:
                 bucket_name, sep, item_name = path.strip('/').partition('/')
@@ -142,7 +174,6 @@ class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='A Mock-S3 server.')
     parser.add_argument('--hostname', dest='hostname', action='store',
-                        default='localhost',
                         help='Hostname to listen on.')
     parser.add_argument('--port', dest='port', action='store',
                         default=10001, type=int,
@@ -157,7 +188,16 @@ if __name__ == '__main__':
 
     redis_client = StrictRedis()
 
-    server = ThreadedHTTPServer((args.hostname, args.port), S3Handler)
+    hostname = None;
+
+    if args.hostname is None :
+        hostname=get_lan_ip();
+        print "Binding to lan ip-" + hostname;
+    else :
+        hostname=args.hostname;
+        print "Binding to provided ip-" + hostname;
+
+    server = ThreadedHTTPServer((hostname, args.port), S3Handler)
     server.set_file_store(FileStore(args.root, redis_client))
     server.set_mock_hostname(args.hostname)
     server.set_pull_from_aws(args.pull_from_aws)
