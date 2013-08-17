@@ -21,6 +21,8 @@ class S3Item(object):
         self.content_type = kwargs['content_type']
         self.md5 = kwargs['md5']
         self.size = kwargs['size']
+        if 'cache_control' in kwargs:
+            self.cache_control = kwargs['cache_control']
         if 'creation_date' in kwargs:
             self.creation_date = kwargs['creation_date']
         if 'modified_date' in kwargs:

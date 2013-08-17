@@ -165,6 +165,7 @@ class FileStore(object):
         headers = {}
         for key in handler.headers:
             headers[key.lower()] = handler.headers[key]
+
         if 'content-type' not in headers:
             headers['content-type'] = 'application/octet-stream'
 
@@ -181,6 +182,7 @@ class FileStore(object):
             metadata['modified_date'] = datetime.now().strftime('%Y-%m-%dT%H:%M:%S.000Z')
             metadata['content_type'] = headers['content-type']
             metadata['size'] = size
+            metadata['cache_control'] = headers['cache-control']
         else:
             metadata = {
                 'content_type': headers['content-type'],
@@ -188,6 +190,7 @@ class FileStore(object):
                 'md5': m.hexdigest(),
                 'filename': filename,
                 'size': size,
+                'cache_control': headers['cache-control']
             }
         self.redis.hmset(key_name, metadata)
 

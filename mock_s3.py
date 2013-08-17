@@ -4,6 +4,7 @@ import logging
 import os
 import socket
 import urlparse
+import datetime
 from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 from SocketServer import ThreadingMixIn
 
@@ -47,6 +48,10 @@ def get_lan_ip():
     return ip        
 
 class S3Handler(BaseHTTPRequestHandler):
+    def address_string(self):
+        host, port = self.client_address[:2]
+        #return socket.getfqdn(host)
+        return host    
     def do_GET(self):
 
         parsed_path = urlparse.urlparse(self.path)
@@ -58,7 +63,6 @@ class S3Handler(BaseHTTPRequestHandler):
         req_type = None
 
         mock_hostname = self.server.mock_hostname
-        print host + "asdf" + path + "asfad" + mock_hostname
 
         if host != mock_hostname and mock_hostname in host:
             idx = host.index(mock_hostname)
@@ -199,7 +203,7 @@ if __name__ == '__main__':
 
     server = ThreadedHTTPServer((hostname, args.port), S3Handler)
     server.set_file_store(FileStore(args.root, redis_client))
-    server.set_mock_hostname(args.hostname)
+    server.set_mock_hostname(hostname)
     server.set_pull_from_aws(args.pull_from_aws)
     server.set_template_env(Environment(loader=PackageLoader('mock_s3', 'templates')))
 

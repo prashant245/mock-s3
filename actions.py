@@ -60,7 +60,7 @@ def get_item(handler, bucket_name, item_name):
         return
 
     content_length = item.size
-
+    etag_val = "\"" + item.md5 + "\""
     headers = {}
     for key in handler.headers:
         headers[key.lower()] = handler.headers[key]
@@ -76,7 +76,7 @@ def get_item(handler, bucket_name, item_name):
         handler.send_response(206)
         handler.send_header('Content-Type', item.content_type)
         handler.send_header('Last-Modified', last_modified)
-        handler.send_header('Etag', item.md5)
+        handler.send_header('Etag', etag_val)
         handler.send_header('Accept-Ranges', 'bytes')
         range = handler.headers['bytes'].split('=')[1]
         start = int(range.split('-')[0])
@@ -89,13 +89,22 @@ def get_item(handler, bucket_name, item_name):
         item.io.seek(start)
         handler.wfile.write(item.io.read(bytes_to_read))
         return
-
+    if 'if-none-match' in headers and headers['if-none-match']==etag_val:
+        handler.send_response(304)
+        handler.send_header('Last-Modified', last_modified)
+        handler.send_header('Etag', etag_val)
+        handler.end_headers()
+        return
+        
     handler.send_response(200)
     handler.send_header('Last-Modified', last_modified)
-    handler.send_header('Etag', item.md5)
+    handler.send_header('Etag', etag_val)
     handler.send_header('Accept-Ranges', 'bytes')
     handler.send_header('Content-Type', item.content_type)
     handler.send_header('Content-Length', content_length)
+    if hasattr(item, 'cache_control'):
+            handler.send_header('Cache-Control', item.cache_control)
     handler.end_headers()
+
     if handler.command == 'GET':
         handler.wfile.write(item.io.read())
